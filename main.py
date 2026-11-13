@@ -22,7 +22,6 @@ def run_web():
 
 keep_alive = lambda: Thread(target=run_web).start()
 
-# الاتصال بقاعدة البيانات السحابية PostgreSQL في Railway
 def get_db_connection():
     database_url = os.getenv("DATABASE_URL")
     if database_url:
@@ -37,7 +36,6 @@ def get_db_connection():
     else:
         return psycopg2.connect(database_url)
 
-# إنتاج الجداول في PostgreSQL سحابياً
 def init_postgres_db():
     try:
         conn = get_db_connection()
@@ -65,24 +63,24 @@ def init_postgres_db():
     except Exception as e:
         print(f"❌ Error initializing database: {e}")
 
-# --- نافذة الأسئلة (Modal) التي تحسب الستريك فقط بعد الإرسال الناجح ---
-class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والاتصال اليومية"):
+# --- الأسئلة الأصلية القديمة ---
+class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليومية"):
     ans1 = discord.ui.TextInput(
         label="١. ماذا فعلت من أجل التولبا اليوم؟",
         style=discord.TextStyle.paragraph,
-        placeholder="اكتب تفاصيل تفاعلك أو تركيزك...",
+        placeholder="اكتب إجابتك هنا...",
         required=True,
         max_length=1000
     )
     ans2 = discord.ui.TextInput(
-        label="٢. ما مستوى إيمانك وتواجدها اليوم؟",
+        label="٢. ما مستوى إيمانك اليوم؟",
         style=discord.TextStyle.short,
-        placeholder="اكتب مستواك أو تقييمك...",
+        placeholder="اكتب مستواك...",
         required=True,
         max_length=200
     )
     ans3 = discord.ui.TextInput(
-        label="٣. ما النتائج أو الملاحظات التي لاحظتها؟",
+        label="٣. ما النتائج التي لاحظتها اليوم؟",
         style=discord.TextStyle.paragraph,
         placeholder="اكتب ملاحظاتك...",
         required=True,
@@ -111,7 +109,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
                     (user_id, display_name, 1, today)
                 )
                 streak_count = 1
-                streak_status_text = "اليوم الأول — بداية رحلتك التفاعلية المشتركة ✨"
+                streak_status_text = "اليوم الأول — بداية رحلتك\n\n· سلسلة تبدأ بخطوة. بدأت رحلتك اليوم في اليوم الأول؛ عد غداً لمواصلتها."
             else:
                 streak_count, last_date = result
                 last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
@@ -129,7 +127,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
                         'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
                         (streak_count, display_name, today, user_id)
                     )
-                    streak_status_text = f"سلسلة متواصلة — {streak_count} يوماً! 🔥"
+                    streak_status_text = f"سلسلة متواصلة — {streak_count} يوماً!\n\nأحسنت بالعودة اليوم! أنت تبني الاستمرارية خطوة بعد خطوة."
                 else:
                     streak_lost = True
                     streak_count = 1
@@ -137,11 +135,10 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
                         'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
                         (1, display_name, today, user_id)
                     )
-                    streak_status_text = "بداية جديدة — تم تصفير الستريك السابق بسبب الانقطاع."
+                    streak_status_text = f"بداية جديدة — اليوم الأول\n\nانتهت سلسلتك السابقة وتم تصفير السترنك. حضورك اليوم يبدأ سلسلة جديدة."
 
             conn.commit()
 
-            # التحقق من خسارة التحديات الثنائية
             if streak_lost or (result and diff_days > 1):
                 cursor.execute("""
                     SELECT id, challenger_id, challenged_id FROM streak_duels 
@@ -165,7 +162,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
                                 
                                 loss_embed = discord.Embed(
                                     title="🚨 نهاية تحدي الستريك!",
-                                    description=f"لقد سقط **{loser_member.display_name}** وخسر سلسلة التحدي أمام **{winner_member.display_name}**! 💀",
+                                    description=f"لقد سقط **{loser_member.display_name}** وخسر سلسلة التحدي أمام **{winner_member.display_name}** بعد أن تراجع في الستريك الخاص به! 💀",
                                     color=discord.Color.from_rgb(220, 20, 60)
                                 )
                                 loss_embed.set_image(url="https://media.giphy.com/media/yqGyGyGyNXzxlOIz2/giphy.gif")
@@ -176,7 +173,6 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
             cursor.close()
             conn.close()
 
-            # إرسال الـ DM
             try:
                 user = interaction.user
                 if streak_lost:
@@ -204,19 +200,22 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور والات
             except Exception as e:
                 print(f"Could not send DM: {e}")
 
-            # نشر الإجابات في الشات
-            answer_embed = discord.Embed(
-                title=f"إجابات وحضور ≛ {display_name}",
-                description=f"**الحالة:** {streak_status_text}",
+            public_embed = discord.Embed(
+                title=f"سجل حضوره اليوم {display_name} ≛",
+                description=f"{streak_status_text}\n\n"
+                            f"إجاباتك الثلاث لليوم:\n"
+                            f"١. ماذا فعلت من أجل التولبا اليوم؟\n"
+                            f"٢. ما مستوى إيمانك اليوم؟\n"
+                            f"٣. ما النتائج التي لاحظتها اليوم؟\n\n"
+                            f"تم توثيق الحضور بنجاح! ✨",
                 color=discord.Color.from_rgb(35, 39, 42)
             )
-            answer_embed.add_field(name="١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
-            answer_embed.add_field(name="٢. ما مستوى إيمانك وتواجدها اليوم؟", value=self.ans2.value, inline=False)
-            answer_embed.add_field(name="٣. ما النتائج والملاحظات؟", value=self.ans3.value, inline=False)
-            answer_embed.set_footer(text="تم توثيق الحضور وتحديث الستريك بنجاح! ✨")
+            public_embed.add_field(name="١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
+            public_embed.add_field(name="٢. ما مستوى إيمانك اليوم؟", value=self.ans2.value, inline=False)
+            public_embed.add_field(name="٣. ما النتائج التي لاحظتها اليوم؟", value=self.ans3.value, inline=False)
 
-            await interaction.channel.send(embed=answer_embed)
-            await interaction.followup.send("✅ تم اعتماد إجاباتك وتحديث الستريك الخاص بك بنجاح!", ephemeral=True)
+            await interaction.channel.send(embed=public_embed)
+            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
 
         except Exception as e:
             print(f"Error in modal submit: {e}")
@@ -301,7 +300,7 @@ class StreakBot(discord.Client):
                         if user:
                             reminder_embed = discord.Embed(
                                 title="⏰ تذكير السلسلة اليومية!",
-                                description="مرحباً! لم تقم بالإجابة عن أسئلة الحضور اليوم بعد. سارع باستعمال `/checkin` قبل أن تضيع سلسلتك! 🔥",
+                                description="مرحباً! لاحظت أنك لم تسجل حضورك اليوم بعد. سارع بعمل `/checkin` لكي لا تضيع سلسلتك المستمرة! 🔥",
                                 color=discord.Color.from_rgb(255, 165, 0)
                             )
                             await user.send(embed=reminder_embed)
@@ -314,14 +313,14 @@ client = StreakBot()
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
     help_embed = discord.Embed(
-        title="📖 دليل استخدام البوت والتولبامانسي",
-        description="هذا البوت مصمم لتتبع حضورك وتوثيق تفاعلك اليومي:",
+        title="📖 دليل استخدام بوت الاستمرارية والتولبا",
+        description="مرحباً بك! هذا البوت مخصص لمساعدتك في تتبع انضباطك وسلسلتك اليومية:",
         color=discord.Color.from_rgb(88, 101, 242)
     )
-    help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية (لن يتم احتساب الستريك إلا بإتمامها وإرسالها).", inline=False)
-    help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية.", inline=False)
-    help_embed.add_field(name="🏆 `/leaderboard`", value="لعرض لوحة الشرف للأعضاء الأكثر التزاماً.", inline=False)
-    help_embed.add_field(name="⚔️ `/streakduel @user`", value="لتحدي شخص آخر في الاستمرارية.", inline=False)
+    help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية وإجبارية الإجابة لتسجيل الحضور.", inline=False)
+    help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية والاطلاع على تقدمك.", inline=False)
+    help_embed.add_field(name="🏆 `/leaderboard`", value="لعرض لوحة الشرف (Top 10).", inline=False)
+    help_embed.add_field(name="⚔️ `/streakduel @user`", value="لتحدي صديق في معركة الستريك.", inline=False)
     await interaction.response.send_message(embed=help_embed, ephemeral=True)
 
 @client.tree.command(name="streakduel", description="تحدى صديقاً في معركة ستريك")
@@ -357,11 +356,11 @@ async def streakduel_cmd(interaction: discord.Interaction, member: discord.Membe
 
     view = DuelResponseView(challenger.id, member.id)
     await interaction.response.send_message(
-        f"⚔️ **تحدي جديد في الستريك!**\n{member.mention}، لقد قام **{challenger.display_name}** بتحديك! هل تقبل المعركة؟",
+        f"⚔️ **تحدي جديد في الستريك!**\n{member.mention}، لقد قام **{challenger.display_name}** بتحديك في معركة الستريك! هل تقبل التحدي؟",
         view=view
     )
 
-@client.tree.command(name="checkin", description="افتح نافذة الأسئلة اليومية لتسجيل حضورك ومواصلة سلسلتك!")
+@client.tree.command(name="checkin", description="افتح نافذة الأسئلة لتسجيل حضورك اليومي!")
 async def checkin(interaction: discord.Interaction):
     user_id = interaction.user.id
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -375,16 +374,16 @@ async def checkin(interaction: discord.Interaction):
         conn.close()
 
         if result and result[0] == today:
-            await interaction.response.send_message("❌ لقد قمت بتسجيل حضورك والإجابة عن الأسئلة اليوم بالفعل! عد غداً.", ephemeral=True)
+            await interaction.response.send_message("❌ لقد سجلت حضورك بالفعل، عد غدا لمواصلة سلسلة انتظامك.", ephemeral=True)
             return
 
         await interaction.response.send_modal(QuestionsModal())
 
     except Exception as e:
-        print(f"Error checking status for checkin: {e}")
+        print(f"Error checking checkin: {e}")
         await interaction.response.send_modal(QuestionsModal())
 
-@client.tree.command(name="streak", description="اعرض عدد أيام سلسلتك الحالية!")
+@client.tree.command(name="streak", description="اعرض عدد أيام سلسلتك الحالية في الانضباط!")
 async def streak_cmd(interaction: discord.Interaction):
     user_id = interaction.user.id
     display_name = interaction.user.display_name
@@ -397,7 +396,7 @@ async def streak_cmd(interaction: discord.Interaction):
         cursor.close()
         conn.close()
 
-        desc = f"❌ ليس لديك أي سلسلة نشطة حالياً. استخدم `/checkin` وأجب عن الأسئلة لبدء رحلتك!" if (not result or result[0] == 0) else f"🔥 أنت في اليوم **{result[0]}** من سلسلة انضباطك وتواصلك المستمر."
+        desc = f"❌ ليس لديك أي سلسلة نشطة حالياً يا {display_name}. استخدم /checkin وابدأ رحلتك اليوم!" if (not result or result[0] == 0) else f"🔥 أهلاً بك يا {display_name}!\n\nانت في اليوم {result[0]} من سلسلة انضباطك واستمرارك."
 
         embed = discord.Embed(title=f"✨ تقرير السلسلة لـ {display_name}", description=desc, color=discord.Color.from_rgb(88, 101, 242))
         await interaction.response.send_message(embed=embed, ephemeral=True)
