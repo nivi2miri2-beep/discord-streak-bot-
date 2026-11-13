@@ -311,7 +311,7 @@ class StreakBot(discord.Client):
             print(f"Error in background reminder: {e}")
 
 client = StreakBot()
-        @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
+@client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
     help_embed = discord.Embed(
         title="📖 دليل استخدام البوت والتولبامانسي",
