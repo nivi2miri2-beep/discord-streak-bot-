@@ -206,13 +206,13 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                             f"إجاباتك الثلاث لليوم:\n"
                             f"١. ماذا فعلت من أجل التولبا اليوم؟\n"
                             f"٢. ما مستوى إيمانك اليوم؟\n"
-                            f"٣. ما النتائج التي لاحظتها اليوم؟\n\n"
+                            f"٣. حكينا عن موقف صار اليوم؟\n\n"
                             f"تم توثيق الحضور بنجاح! ✨",
                 color=discord.Color.from_rgb(35, 39, 42)
             )
             public_embed.add_field(name="١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
             public_embed.add_field(name="٢. ما مستوى إيمانك اليوم؟", value=self.ans2.value, inline=False)
-            public_embed.add_field(name="٣. ما النتائج التي لاحظتها اليوم؟", value=self.ans3.value, inline=False)
+            public_embed.add_field(name="٣. حكينا عن موقف صار اليوم؟", value=self.ans3.value, inline=False)
 
             await interaction.channel.send(embed=public_embed)
             await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
