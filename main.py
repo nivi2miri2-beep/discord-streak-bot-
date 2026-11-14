@@ -80,7 +80,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
         max_length=200
     )
     ans3 = discord.ui.TextInput(
-        label="٣. ما النتائج التي لاحظتها اليوم؟",
+        label=" ٣.حكينا عن موقف صار اليوم ",
         style=discord.TextStyle.paragraph,
         placeholder="اكتب ملاحظاتك...",
         required=True,
