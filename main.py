@@ -310,6 +310,36 @@ class StreakBot(discord.Client):
             print(f"Error in background reminder: {e}")
 
 client = StreakBot()
+        # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    if message.content.strip().lower() == "!info":
+        desc_embed = discord.Embed(
+            title="✨ بـوت الإلـتـزام والـتـولـبـا 🌟",
+            description="يا هلا بك يا راقي/يا راقية! 🌸 هذا رفيق دربك في السيرفر لمتابعة انضباطك، سلسلتك اليومية، ورحلتك بكل شغف واجتهاد. 💪🔥",
+            color=discord.Color.from_rgb(88, 101, 242)
+        )
+        desc_embed.add_field(
+            name="🔹 أهم الأوامر والخدمات:",
+            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة، وخلك دائماً في القمة!\n"
+                  "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒).\n"
+                  "* 🏆 **`/leaderboard`** — ناظر لوحة الشرف وشوف الأبطال الملتزمين معنا في القمة (Top 10) 👑.\n"
+                  "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل 🌟.\n"
+                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.",
+            inline=False
+        )
+        desc_embed.add_field(
+            name="⏰ تذكير تلقائي:",
+            value="لا تشيل هم نسيان الستريك! البوت يراقب وضعك ويرسل لك تنبيه في الخاص (DM) عشان ما يضيع تعبك وتطير سلسلتك 🚀.",
+            inline=False
+        )
+        desc_embed.set_footer(text="✨ هات ما عندك، وخلنا نبني استمرارية تليق بطموحك! ☕🌿")
+
+        await message.channel.send(embed=desc_embed)
+
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
     help_embed = discord.Embed(
@@ -438,4 +468,4 @@ if __name__ == "__main__":
         print("❌ Error: DISCORD_TOKEN environment variable not found!")
     else:
         client.run(TOKEN)
-    
+        
