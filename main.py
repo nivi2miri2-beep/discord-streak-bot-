@@ -63,7 +63,6 @@ def init_postgres_db():
     except Exception as e:
         print(f"❌ Error initializing database: {e}")
 
-# --- الأسئلة الأصلية القديمة ---
 class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليومية"):
     ans1 = discord.ui.TextInput(
         label="١. ماذا فعلت من أجل التولبا اليوم؟",
@@ -138,132 +137,20 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                     streak_status_text = f"بداية جديدة — اليوم الأول\n\nانتهت سلسلتك السابقة وتم تصفير السترنك. حضورك اليوم يبدأ سلسلة جديدة."
 
             conn.commit()
-
-            if streak_lost or (result and diff_days > 1):
-                cursor.execute("""
-                    SELECT id, challenger_id, challenged_id FROM streak_duels 
-                    WHERE (challenger_id = %s OR challenged_id = %s) AND status = 'active'
-                """, (user_id, user_id))
-                active_duels = cursor.fetchall()
-
-                for duel_id, c_id, cd_id in active_duels:
-                    winner_id = cd_id if c_id == user_id else c_id
-                    loser_id = user_id
-                    cursor.execute("UPDATE streak_duels SET status = 'finished' WHERE id = %s", (duel_id,))
-                    conn.commit()
-
-                    if CHALLENGE_CHANNEL_ID:
-                        try:
-                            channel = interaction.client.get_channel(CHALLENGE_CHANNEL_ID) or await interaction.client.fetch_channel(CHALLENGE_CHANNEL_ID)
-                            if channel:
-                                guild = interaction.guild
-                                loser_member = guild.get_member(loser_id) or await interaction.client.fetch_user(loser_id)
-                                winner_member = guild.get_member(winner_id) or await interaction.client.fetch_user(winner_id)
-                                
-                                loss_embed = discord.Embed(
-                                    title="🚨 نهاية تحدي الستريك!",
-                                    description=f"لقد سقط **{loser_member.display_name}** وخسر سلسلة التحدي أمام **{winner_member.display_name}** بعد أن تراجع في الستريك الخاص به! 💀",
-                                    color=discord.Color.from_rgb(220, 20, 60)
-                                )
-                                loss_embed.set_image(url="https://media.giphy.com/media/yqGyGyGyNXzxlOIz2/giphy.gif")
-                                await channel.send(content="@everyone", embed=loss_embed)
-                        except Exception as ex:
-                            print(f"Error sending duel loss: {ex}")
-
             cursor.close()
             conn.close()
 
-            try:
-                user = interaction.user
-                if streak_lost:
-                    dm_embed = discord.Embed(
-                        title="أنباء حزينة..",
-                        description="ضيعت عليك الستريك ياحلو ؟ فين راح حماسك ؟\nيله لا تستسلم وابدا سلسلة جديدة ولا تنساني لا ازعل منك",
-                        color=discord.Color.from_rgb(200, 50, 50)
-                    )
-                    dm_embed.set_image(url="https://media.giphy.com/media/XOhNjDesPsfnS0GHz5/giphy.gif")
-                    await user.send(embed=dm_embed)
-                else:
-                    success_gifs = [
-                        "https://media.giphy.com/media/FYFWukbC5RA5KPCmjs/giphy.gif",
-                        "https://media.giphy.com/media/jap5P8z66BvpgUDGak/giphy.gif",
-                        "https://media.giphy.com/media/ekf5UulYRW9mZOpbmL/giphy.gif",
-                        "https://media.giphy.com/media/uTyfvzWlczbNc7Mvdj/giphy.gif"
-                    ]
-                    dm_embed = discord.Embed(
-                        title="أهلاً فيك، ★!!",
-                        description="سجلت حضورك اليوم وصارت سلسلتك مستمرة.. كفو عليك وعلى هالتزام الحلو! (๑˃̵ᴗ˂̵)و ♡",
-                        color=discord.Color.from_rgb(30, 30, 30)
-                    )
-                    dm_embed.set_image(url=random.choice(success_gifs))
-                    await user.send(embed=dm_embed)
-            except Exception as e:
-                print(f"Could not send DM: {e}")
-
             public_embed = discord.Embed(
                 title=f"سجل حضوره اليوم {display_name} ≛",
-                description=f"{streak_status_text}\n\n"
-                            f"إجاباتك الثلاث لليوم:\n"
-                            f"١. ماذا فعلت من أجل التولبا اليوم؟\n"
-                            f"٢. ما مستوى إيمانك اليوم؟\n"
-                            f"٣. حكينا عن موقف صار اليوم؟\n\n"
-                            f"تم توثيق الحضور بنجاح! ✨",
+                description=f"{streak_status_text}\n\nتم توثيق الحضور بنجاح! ✨",
                 color=discord.Color.from_rgb(35, 39, 42)
             )
-            public_embed.add_field(name="١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
-            public_embed.add_field(name="٢. ما مستوى إيمانك اليوم؟", value=self.ans2.value, inline=False)
-            public_embed.add_field(name="٣. حكينا عن موقف صار اليوم؟", value=self.ans3.value, inline=False)
-
             await interaction.channel.send(embed=public_embed)
-            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
+            await interaction.followup.send("✅ تم تحديث الستريك بنجاح!", ephemeral=True)
 
         except Exception as e:
-            print(f"Error in modal submit: {e}")
-            await interaction.followup.send("❌ حدث خطأ أثناء حفظ بيانات الحضور.", ephemeral=True)
-
-class DuelResponseView(discord.ui.View):
-    def __init__(self, challenger_id: int, challenged_id: int):
-        super().__init__(timeout=300)
-        self.challenger_id = challenger_id
-        self.challenged_id = challenged_id
-
-    @discord.ui.button(label="قبول التحدي ⚔️", style=discord.ButtonStyle.green)
-    async def accept_duel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.challenged_id:
-            await interaction.response.send_message("❌ هذا التحدي ليس موجهاً لك!", ephemeral=True)
-            return
-        await interaction.response.defer()
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE streak_duels SET status = 'active' WHERE challenger_id = %s AND challenged_id = %s AND status = 'pending'",
-            (self.challenger_id, self.challenged_id)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        for child in self.children:
-            child.disabled = True
-        await interaction.edit_original_response(content=f"⚔️ **قبل {interaction.user.display_name} التحدي!** المعركة على الستريك بدأت 🔥", view=self)
-
-    @discord.ui.button(label="رفض ❌", style=discord.ButtonStyle.red)
-    async def decline_duel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.challenged_id:
-            await interaction.response.send_message("❌ هذا التحدي ليس موجهاً لك!", ephemeral=True)
-            return
-        await interaction.response.defer()
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM streak_duels WHERE challenger_id = %s AND challenged_id = %s AND status = 'pending'",
-            (self.challenger_id, self.challenged_id)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        for child in self.children:
-            child.disabled = True
-        await interaction.edit_original_response(content=f"❌ رفض {interaction.user.display_name} التحدي.", view=self)
+            print(f"Error: {e}")
+            await interaction.followup.send("❌ حدث خطأ.", ephemeral=True)
 
 class StreakBot(discord.Client):
     def __init__(self):
@@ -276,42 +163,10 @@ class StreakBot(discord.Client):
     async def setup_hook(self):
         init_postgres_db()
         await self.tree.sync()
-        self.daily_reminder.start()
         print(f"Logged in as {self.user}")
 
-    @tasks.loop(hours=24)
-    async def daily_reminder(self):
-        await self.wait_until_ready()
-        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-        today_obj = datetime.strptime(today, '%Y-%m-%d').date()
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT user_id, streak_count, last_date FROM streaks WHERE streak_count > 0')
-            users = cursor.fetchall()
-            cursor.close()
-            conn.close()
-
-            for user_id, streak, last_date in users:
-                last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
-                if (today_obj - last_date_obj).days == 1:
-                    try:
-                        user = await self.fetch_user(user_id)
-                        if user:
-                            reminder_embed = discord.Embed(
-                                title="⏰ تذكير السلسلة اليومية!",
-                                description="مرحباً! لاحظت أنك لم تسجل حضورك اليوم بعد. سارع بعمل `/checkin` لكي لا تضيع سلسلتك المستمرة! 🔥",
-                                color=discord.Color.from_rgb(255, 165, 0)
-                            )
-                            await user.send(embed=reminder_embed)
-                    except Exception as e:
-                        print(f"Could not send reminder: {e}")
-        except Exception as e:
-            print(f"Error in background reminder: {e}")
-
 client = StreakBot()
-        # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
-@client.event
+        @client.event
 async def on_message(message):
     if message.author == client.user:
         return
@@ -324,21 +179,55 @@ async def on_message(message):
         )
         desc_embed.add_field(
             name="🔹 أهم الأوامر والخدمات:",
-            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة، وخلك دائماً في القمة!\n"
-                  "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒).\n"
-                  "* 🏆 **`/leaderboard`** — ناظر لوحة الشرف وشوف الأبطال الملتزمين معنا في القمة (Top 10) 👑.\n"
-                  "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل 🌟.\n"
-                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.",
+            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة\n"
+                  "* 🔥 **`/streak`** — عرض تقرير سلسلتك الخاص 🔒\n"
+                  "* 🏆 **`/leaderboard`** — لوحة الشرف (Top 10) 👑\n"
+                  "* ⚔️ **`/streakduel`** — تحدي صديق في معركة الستريك ⚔️",
             inline=False
         )
-        desc_embed.add_field(
-            name="⏰ تذكير تلقائي:",
-            value="لا تشيل هم نسيان الستريك! البوت يراقب وضعك ويرسل لك تنبيه في الخاص (DM) عشان ما يضيع تعبك وتطير سلسلتك 🚀.",
-            inline=False
-        )
-        desc_embed.set_footer(text="✨ هات ما عندك، وخلنا نبني استمرارية تليق بطموحك! ☕🌿")
-
         await message.channel.send(embed=desc_embed)
+
+# --- أمر الـ Freeze (يقرأ OWNER_ID من متغيرات البيئة بأمان) ---
+@client.tree.command(name="freeze", description="تجميد ستريك عضو لحمايته من الضياع (خاص بمولات البوت)")
+@app_commands.describe(member="العضو المراد تجميد ستريكه", days="عدد أيام التجميد")
+async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, days: int = 1):
+    owner_id_env = os.getenv("OWNER_ID")
+    
+    # التأكد من مطابقة الآيدي أو رفض الطلب
+    if not owner_id_env or str(interaction.user.id) != str(owner_id_env):
+        await interaction.response.send_message("❌ عذراً، هذا الأمر مخصص فقط لمولات البوت!", ephemeral=True)
+        return
+
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT streak_count FROM streaks WHERE user_id = %s', (member.id,))
+        result = cursor.fetchone()
+
+        if not result:
+            cursor.close()
+            conn.close()
+            await interaction.response.send_message(f"❌ العضو {member.display_name} ليس لديه أي ستريك مسجل بعد!", ephemeral=True)
+            return
+
+        cursor.execute(
+            'UPDATE streaks SET last_date = %s WHERE user_id = %s',
+            (today, member.id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        await interaction.response.send_message(
+            f"❄️ تم تجميد وحماية ستريك العضو **{member.display_name}** بنجاح لمدة {days} يوم/أيام! لن يضيع ستريكه اليوم.",
+            ephemeral=True
+        )
+    except Exception as e:
+        print(f"Error in freeze command: {e}")
+        await interaction.response.send_message("❌ حدث خطأ أثناء تنفيذ التجميد.", ephemeral=True)
 
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
@@ -347,71 +236,14 @@ async def help_cmd(interaction: discord.Interaction):
         description="مرحباً بك! هذا البوت مخصص لمساعدتك في تتبع انضباطك وسلسلتك اليومية:",
         color=discord.Color.from_rgb(88, 101, 242)
     )
-    help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية وإجبارية الإجابة لتسجيل الحضور.", inline=False)
-    help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية والاطلاع على تقدمك.", inline=False)
+    help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية لتسجيل الحضور.", inline=False)
+    help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية (خاص بك).", inline=False)
     help_embed.add_field(name="🏆 `/leaderboard`", value="لعرض لوحة الشرف (Top 10).", inline=False)
-    help_embed.add_field(name="⚔️ `/streakduel @user`", value="لتحدي صديق في معركة الستريك.", inline=False)
     await interaction.response.send_message(embed=help_embed, ephemeral=True)
-
-@client.tree.command(name="streakduel", description="تحدى صديقاً في معركة ستريك")
-@app_commands.describe(member="الشخص الذي تريد تحديه")
-async def streakduel_cmd(interaction: discord.Interaction, member: discord.Member):
-    challenger = interaction.user
-    if member.bot or member.id == challenger.id:
-        await interaction.response.send_message("❌ لا يمكنك تحدي بوت أو نفسك!", ephemeral=True)
-        return
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM streak_duels 
-        WHERE ((challenger_id = %s AND challenged_id = %s) OR (challenger_id = %s AND challenged_id = %s)) 
-        AND status IN ('pending', 'active')
-    """, (challenger.id, member.id, member.id, challenger.id))
-    existing = cursor.fetchone()
-
-    if existing:
-        cursor.close()
-        conn.close()
-        await interaction.response.send_message("❌ يوجد تحدي قائم أو معلق بينكما بالفعل!", ephemeral=True)
-        return
-
-    cursor.execute(
-        "INSERT INTO streak_duels (challenger_id, challenged_id, status) VALUES (%s, %s, %s)",
-        (challenger.id, member.id, 'pending')
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    view = DuelResponseView(challenger.id, member.id)
-    await interaction.response.send_message(
-        f"⚔️ **تحدي جديد في الستريك!**\n{member.mention}، لقد قام **{challenger.display_name}** بتحديك في معركة الستريك! هل تقبل التحدي؟",
-        view=view
-    )
 
 @client.tree.command(name="checkin", description="افتح نافذة الأسئلة لتسجيل حضورك اليومي!")
 async def checkin(interaction: discord.Interaction):
-    user_id = interaction.user.id
-    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT last_date FROM streaks WHERE user_id = %s', (user_id,))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        if result and result[0] == today:
-            await interaction.response.send_message("❌ لقد سجلت حضورك بالفعل، عد غدا لمواصلة سلسلة انتظامك.", ephemeral=True)
-            return
-
-        await interaction.response.send_modal(QuestionsModal())
-
-    except Exception as e:
-        print(f"Error checking checkin: {e}")
-        await interaction.response.send_modal(QuestionsModal())
+    await interaction.response.send_modal(QuestionsModal())
 
 @client.tree.command(name="streak", description="اعرض عدد أيام سلسلتك الحالية في الانضباط!")
 async def streak_cmd(interaction: discord.Interaction):
@@ -427,14 +259,13 @@ async def streak_cmd(interaction: discord.Interaction):
         conn.close()
 
         desc = f"❌ ليس لديك أي سلسلة نشطة حالياً يا {display_name}. استخدم /checkin وابدأ رحلتك اليوم!" if (not result or result[0] == 0) else f"🔥 أهلاً بك يا {display_name}!\n\nانت في اليوم {result[0]} من سلسلة انضباطك واستمرارك."
-
         embed = discord.Embed(title=f"✨ تقرير السلسلة لـ {display_name}", description=desc, color=discord.Color.from_rgb(88, 101, 242))
         await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
-        print(f"Error in streak cmd: {e}")
+        print(f"Error: {e}")
         await interaction.response.send_message("❌ حدث خطأ أثناء جلب المعلومات.", ephemeral=True)
 
-@client.tree.command(name="leaderboard", description="عرض لوحة الشرف وأكثر الأعضاء التزاماً (Top 10)")
+@client.tree.command(name="leaderboard", description="عرض لوحة الشرف وأكثر الأعضاء التزاماً")
 async def leaderboard_cmd(interaction: discord.Interaction):
     try:
         conn = get_db_connection()
@@ -450,15 +281,14 @@ async def leaderboard_cmd(interaction: discord.Interaction):
 
         lb_description = "⚡ Top 10 • Consistency Leaderboard\n\n"
         medals = ["👑", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-
         for index, (db_username, streak) in enumerate(top_users):
             medal = medals[index] if index < len(medals) else f"#{index+1}"
             lb_description += f"{medal} {db_username or 'Unknown'} — {streak} days 🔥\n"
 
         embed = discord.Embed(title="🏆 Server Leaderboard • Hall of Fame", description=lb_description, color=discord.Color.from_rgb(255, 215, 0))
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
-        print(f"Error in leaderboard: {e}")
+        print(f"Error: {e}")
         await interaction.response.send_message("❌ حدث خطأ أثناء تحميل لوحة الشرف.", ephemeral=True)
 
 if __name__ == "__main__":
@@ -468,4 +298,3 @@ if __name__ == "__main__":
         print("❌ Error: DISCORD_TOKEN environment variable not found!")
     else:
         client.run(TOKEN)
-        
