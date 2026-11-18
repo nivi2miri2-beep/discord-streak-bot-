@@ -65,21 +65,21 @@ def init_postgres_db():
 
 class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليومية"):
     ans1 = discord.ui.TextInput(
-        label="١. ماذا فعلت من أجل التولبا اليوم؟",
+        label="ماذا فعلت من أجل التولبا اليوم؟",
         style=discord.TextStyle.paragraph,
         placeholder="اكتب إجابتك هنا...",
         required=True,
         max_length=1000
     )
     ans2 = discord.ui.TextInput(
-        label="٢. ما مستوى إيمانك اليوم؟",
+        label="ما مستوى إيمانك اليوم؟",
         style=discord.TextStyle.short,
         placeholder="اكتب مستواك...",
         required=True,
         max_length=200
     )
     ans3 = discord.ui.TextInput(
-        label=" ٣.حكينا عن موقف صار اليوم ",
+        label="حكينا عن موقف صار اليوم",
         style=discord.TextStyle.paragraph,
         placeholder="اكتب ملاحظاتك...",
         required=True,
@@ -140,17 +140,24 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
             cursor.close()
             conn.close()
 
+            # دمج الإجابات بشكل صحيح في الـ Embed العام باش تبان للكل
             public_embed = discord.Embed(
                 title=f"سجل حضوره اليوم {display_name} ≛",
-                description=f"{streak_status_text}\n\nتم توثيق الحضور بنجاح! ✨",
+                description=f"{streak_status_text}\n\n"
+                            f"**إجاباتك الثلاث لليوم:**\n"
+                            f"١. ماذا فعلت من أجل التولبا اليوم؟\n{self.ans1.value}\n\n"
+                            f"٢. ما مستوى إيمانك اليوم؟\n{self.ans2.value}\n\n"
+                            f"٣. حكينا عن موقف صار اليوم:\n{self.ans3.value}\n\n"
+                            f"تم توثيق الحضور بنجاح! ✨",
                 color=discord.Color.from_rgb(35, 39, 42)
             )
+
             await interaction.channel.send(embed=public_embed)
-            await interaction.followup.send("✅ تم تحديث الستريك بنجاح!", ephemeral=True)
+            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
 
         except Exception as e:
-            print(f"Error: {e}")
-            await interaction.followup.send("❌ حدث خطأ.", ephemeral=True)
+            print(f"Error in modal submit: {e}")
+            await interaction.followup.send("❌ حدث خطأ أثناء حفظ بيانات الحضور.", ephemeral=True)
 
 class StreakBot(discord.Client):
     def __init__(self):
@@ -166,6 +173,7 @@ class StreakBot(discord.Client):
         print(f"Logged in as {self.user}")
 
 client = StreakBot()
+                    # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -179,12 +187,20 @@ async def on_message(message):
         )
         desc_embed.add_field(
             name="🔹 أهم الأوامر والخدمات:",
-            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة\n"
-                  "* 🔥 **`/streak`** — عرض تقرير سلسلتك الخاص 🔒\n"
-                  "* 🏆 **`/leaderboard`** — لوحة الشرف (Top 10) 👑\n"
-                  "* ⚔️ **`/streakduel`** — تحدي صديق في معركة الستريك ⚔️",
+            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة، وخلك دائماً في القمة!\n"
+                  "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒).\n"
+                  "* 🏆 **`/leaderboard`** — ناظر لوحة الشرف وشوف الأبطال الملتزمين معنا في القمة (Top 10) 👑.\n"
+                  "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل 🌟.\n"
+                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.",
             inline=False
         )
+        desc_embed.add_field(
+            name="⏰ تذكير تلقائي:",
+            value="لا تشيل هم نسيان الستريك! البوت يراقب وضعك ويرسل لك تنبيه في الخاص (DM) عشان ما يضيع تعبك وتطير سلسلتك 🚀.",
+            inline=False
+        )
+        desc_embed.set_footer(text="✨ هات ما عندك، وخلنا نبني استمرارية تليق بطموحك! ☕🌿")
+
         await message.channel.send(embed=desc_embed)
 
 # --- أمر الـ Freeze (يقرأ OWNER_ID من متغيرات البيئة بأمان) ---
@@ -298,3 +314,4 @@ if __name__ == "__main__":
         print("❌ Error: DISCORD_TOKEN environment variable not found!")
     else:
         client.run(TOKEN)
+        
