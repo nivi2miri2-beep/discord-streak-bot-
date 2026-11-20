@@ -207,6 +207,23 @@ class StreakBot(discord.Client):
 
 client = StreakBot()
                     # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
+import requests
+
+FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
+
+def get_random_foryou_message():
+    try:
+        response = requests.get(FORYOU_RAW_URL, timeout=10)
+        response.raise_for_status()
+        lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+        if not lines:
+            return None
+        return random.choice(lines)
+    except Exception as e:
+        print(f"Error fetching /foryou messages: {e}")
+        return None
+
+# --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -224,7 +241,8 @@ async def on_message(message):
                   "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒).\n"
                   "* 🏆 **`/leaderboard`** — ناظر لوحة الشرف وشوف الأبطال الملتزمين معنا في القمة (Top 10) 👑.\n"
                   "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل 🌟.\n"
-                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.",
+                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.\n"
+                  "* ✨ **`/foryou`** — رسالة مفاجأة عشوائية ليك!",
             inline=False
         )
         desc_embed.add_field(
@@ -242,7 +260,6 @@ async def on_message(message):
 async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, days: int = 1):
     owner_id_env = os.getenv("OWNER_ID")
     
-    # التأكد من مطابقة الآيدي أو رفض الطلب
     if not owner_id_env or str(interaction.user.id) != str(owner_id_env):
         await interaction.response.send_message("❌ عذراً، هذا الأمر مخصص فقط لمولات البوت!", ephemeral=True)
         return
@@ -278,6 +295,22 @@ async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, d
         print(f"Error in freeze command: {e}")
         await interaction.response.send_message("❌ حدث خطأ أثناء تنفيذ التجميد.", ephemeral=True)
 
+@client.tree.command(name="foryou", description="رسالة مفاجأة عشوائية ليك!")
+async def foryou_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=False)
+    msg = get_random_foryou_message()
+
+    if not msg:
+        await interaction.followup.send("❌ ما قدرتش نجيب الرسائل دابا، عاود جرب شوية من بعد.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="✨ For You ✨",
+        description=f"{interaction.user.mention}\n\n{msg}",
+        color=discord.Color.from_rgb(88, 101, 242)
+    )
+    await interaction.followup.send(embed=embed)
+
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
     help_embed = discord.Embed(
@@ -288,6 +321,7 @@ async def help_cmd(interaction: discord.Interaction):
     help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية لتسجيل الحضور.", inline=False)
     help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية (خاص بك).", inline=False)
     help_embed.add_field(name="🏆 `/leaderboard`", value="لعرض لوحة الشرف (Top 10).", inline=False)
+    help_embed.add_field(name="✨ `/foryou`", value="رسالة مفاجأة عشوائية ليك.", inline=False)
     await interaction.response.send_message(embed=help_embed, ephemeral=True)
 
 @client.tree.command(name="checkin", description="افتح نافذة الأسئلة لتسجيل حضورك اليومي!")
