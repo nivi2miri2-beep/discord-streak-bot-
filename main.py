@@ -173,7 +173,7 @@ class StreakBot(commands.Bot):
         await self.wait_until_ready()
 
 client = StreakBot()
-               import requests
+import requests
 
 FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
 
