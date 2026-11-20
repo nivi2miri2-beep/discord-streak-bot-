@@ -1,213 +1,179 @@
 import os
+import random
+import asyncio
+from datetime import datetime, timezone, timedelta
+from threading import Thread
+
 import discord
 from discord import app_commands
-from datetime import datetime, timezone
+from discord.ext import commands, tasks
 from flask import Flask
-from threading import Thread
 import psycopg2
-import random
-from discord.ext import tasks
-from urllib.parse import urlparse
 
-CHALLENGE_CHANNEL_ID = 1479578382252511383
-
+# --- Keep-Alive Web Server for Railway ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is online and running with PostgreSQL! 🚀"
+    return "Bot is alive and running!"
 
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
-keep_alive = lambda: Thread(target=run_web).start()
+def keep_alive():
+    t = Thread(target=run_flask)
+    t.daemon = True
+    t.start()
 
+# --- Database Connection ---
 def get_db_connection():
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        url = urlparse(database_url)
-        return psycopg2.connect(
-            database=url.path[1:],
-            user=url.username,
-            password=url.password,
-            host=url.hostname,
-            port=url.port
+    db_url = os.getenv("DATABASE_URL")
+    return psycopg2.connect(db_url)
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS streaks (
+            user_id BIGINT PRIMARY KEY,
+            username TEXT,
+            streak_count INTEGER DEFAULT 0,
+            last_date TEXT,
+            reminded_today BOOLEAN DEFAULT FALSE
         )
-    else:
-        return psycopg2.connect(database_url)
+    ''')
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-def init_postgres_db():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS streaks (
-                user_id BIGINT PRIMARY KEY,
-                username TEXT,
-                streak_count INTEGER,
-                last_date TEXT
-            )
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS streak_duels (
-                id SERIAL PRIMARY KEY,
-                challenger_id BIGINT,
-                challenged_id BIGINT,
-                status TEXT
-            )
-        """)
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("✅ PostgreSQL Database tables initialized successfully.")
-    except Exception as e:
-        print(f"❌ Error initializing database: {e}")
-
-class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليومية"):
-    ans1 = discord.ui.TextInput(
-        label="ماذا فعلت من أجل التولبا اليوم؟",
+# --- Check-in Modal ---
+class QuestionsModal(discord.ui.Modal, title='📝 تسجيل الحضور اليومي'):
+    q1 = discord.ui.TextInput(
+        label='كيف كان يومك وتقدمك اليوم؟',
         style=discord.TextStyle.paragraph,
-        placeholder="اكتب إجابتك هنا...",
+        placeholder='اكتب ملخص بسيط عن إنجازك أو حالتك اليوم...',
         required=True,
-        max_length=1000
+        max_length=500
     )
-    ans2 = discord.ui.TextInput(
-        label="ما مستوى إيمانك اليوم؟",
+    q2 = discord.ui.TextInput(
+        label='ما هو هدفك الأساسي ليوم غد؟',
         style=discord.TextStyle.short,
-        placeholder="اكتب مستواك...",
+        placeholder='هدف واحد واضح تلتزم به...',
         required=True,
         max_length=200
-    )
-    ans3 = discord.ui.TextInput(
-        label="حكينا عن موقف صار اليوم",
-        style=discord.TextStyle.paragraph,
-        placeholder="اكتب ملاحظاتك...",
-        required=True,
-        max_length=1000
     )
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         user_id = interaction.user.id
-        display_name = interaction.user.display_name
-        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        username = interaction.user.display_name
+        now_utc = datetime.now(timezone.utc)
+        today_str = now_utc.strftime('%Y-%m-%d')
+        yesterday_str = (now_utc - timedelta(days=1)).strftime('%Y-%m-%d')
 
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('SELECT streak_count, last_date FROM streaks WHERE user_id = %s', (user_id,))
-            result = cursor.fetchone()
+            row = cursor.fetchone()
 
-            streak_status_text = ""
-            streak_lost = False
-            diff_days = 0
-
-            if result is None:
-                cursor.execute(
-                    'INSERT INTO streaks (user_id, username, streak_count, last_date) VALUES (%s, %s, %s, %s)',
-                    (user_id, display_name, 1, today)
-                )
-                streak_count = 1
-                streak_status_text = "اليوم الأول — بداية رحلتك\n\n· سلسلة تبدأ بخطوة. بدأت رحلتك اليوم في اليوم الأول؛ عد غداً لمواصلتها."
-            else:
-                streak_count, last_date = result
-                last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
-                today_obj = datetime.strptime(today, '%Y-%m-%d').date()
-                diff_days = (today_obj - last_date_obj).days
-
-                if diff_days == 0:
+            if row:
+                current_streak, last_date = row
+                if last_date == today_str:
                     cursor.close()
                     conn.close()
-                    await interaction.followup.send("❌ لقد سجلت حضورك وأجبت عن الأسئلة مسبقاً اليوم!", ephemeral=True)
+                    await interaction.followup.send("✅ لقد قمت بتسجيل حضورك لليوم بالفعل! نراك غداً 🔥", ephemeral=True)
                     return
-                elif diff_days == 1:
-                    streak_count += 1
-                    cursor.execute(
-                        'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
-                        (streak_count, display_name, today, user_id)
-                    )
-                    streak_status_text = f"سلسلة متواصلة — {streak_count} يوماً!\n\nأحسنت بالعودة اليوم! أنت تبني الاستمرارية خطوة بعد خطوة."
+                elif last_date == yesterday_str:
+                    new_streak = current_streak + 1
                 else:
-                    streak_lost = True
-                    streak_count = 1
-                    cursor.execute(
-                        'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
-                        (1, display_name, today, user_id)
-                    )
-                    streak_status_text = f"بداية جديدة — اليوم الأول\n\nانتهت سلسلتك السابقة وتم تصفير السترنك. حضورك اليوم يبدأ سلسلة جديدة."
+                    new_streak = 1
+
+                cursor.execute(
+                    'UPDATE streaks SET streak_count = %s, last_date = %s, username = %s, reminded_today = FALSE WHERE user_id = %s',
+                    (new_streak, today_str, username, user_id)
+                )
+            else:
+                new_streak = 1
+                cursor.execute(
+                    'INSERT INTO streaks (user_id, username, streak_count, last_date, reminded_today) VALUES (%s, %s, %s, %s, FALSE)',
+                    (user_id, username, new_streak, today_str)
+                )
 
             conn.commit()
             cursor.close()
             conn.close()
-            # --- إرسال رسالة خاصة (DM) حسب حالة الستريك ---
-            try:
-                user = interaction.user
-                if streak_lost:
-                    lost_gifs = [
-                        "https://media.giphy.com/media/XOhNjDesPsfnS0GHz5/giphy.gif"
-                    ]
-                    dm_embed = discord.Embed(
-                        title="أنباء حزينة..",
-                        description="ضيعت عليك الستريك ياحلو ؟ فين راح حماسك ؟\nيله لا تستسلم وابدا سلسلة جديدة ولا تنساني لا ازعل منك",
-                        color=discord.Color.from_rgb(200, 50, 50)
-                    )
-                    dm_embed.set_image(url=random.choice(lost_gifs))
-                    await user.send(embed=dm_embed)
-                else:
-                    success_gifs = [
-                        "https://media.giphy.com/media/FYFWukbC5RA5KPCmjs/giphy.gif",
-                        "https://media.giphy.com/media/jap5P8z66BvpgUDGak/giphy.gif",
-                        "https://media.giphy.com/media/ekf5UulYRW9mZOpbmL/giphy.gif",
-                        "https://media.giphy.com/media/uTyfvzWlczbNc7Mvdj/giphy.gif"
-                    ]
-                    dm_embed = discord.Embed(
-                        title="أهلاً فيك، ★!!",
-                        description="سجلت حضورك اليوم وصارت سلسلتك مستمرة.. كفو عليك وعلى هالتزام الحلو! (๑˃̵ᴗ˂̵)و ♡",
-                        color=discord.Color.from_rgb(30, 30, 30)
-                    )
-                    dm_embed.set_image(url=random.choice(success_gifs))
-                    await user.send(embed=dm_embed)
-            except discord.Forbidden:
-                # العضو ساد الـ DMs من إعدادات السيرفر أو الحساب
-                print(f"Cannot send DM to {user.id}: DMs are closed.")
-            except Exception as e:
-                print(f"Could not send DM: {e}")
-                    
-            # دمج الإجابات بشكل صحيح في الـ Embed العام باش تبان للكل
-            public_embed = discord.Embed(
-                title=f"سجل حضوره اليوم {display_name} ≛",
-                description=f"{streak_status_text}\n\n"
-                            f"**إجاباتك الثلاث لليوم:**\n"
-                            f"١. ماذا فعلت من أجل التولبا اليوم؟\n{self.ans1.value}\n\n"
-                            f"٢. ما مستوى إيمانك اليوم؟\n{self.ans2.value}\n\n"
-                            f"٣. حكينا عن موقف صار اليوم:\n{self.ans3.value}\n\n"
-                            f"تم توثيق الحضور بنجاح! ✨",
-                color=discord.Color.from_rgb(35, 39, 42)
-            )
 
-            await interaction.channel.send(embed=public_embed)
-            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
+            embed = discord.Embed(
+                title="🔥 تم تسجيل حضورك بنجاح!",
+                description=f"أحسنت يا **{username}**! سلسلتك الحالية وصلت إلى **{new_streak} يوم** من الالتزام المستمر. 🚀",
+                color=discord.Color.from_rgb(88, 101, 242)
+            )
+            embed.add_field(name="📌 ملخص اليوم:", value=self.q1.value, inline=False)
+            embed.add_field(name="🎯 هدف الغد:", value=self.q2.value, inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
         except Exception as e:
-            print(f"Error in modal submit: {e}")
-            await interaction.followup.send("❌ حدث خطأ أثناء حفظ بيانات الحضور.", ephemeral=True)
+            print(f"Error in checkin modal: {e}")
+            await interaction.followup.send("❌ حدث خطأ أثناء حفظ البيانات، يرجى المحاولة مرة أخرى.", ephemeral=True)
 
-class StreakBot(discord.Client):
+# --- Bot Setup & Background Tasks ---
+class StreakBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.members = True
         intents.message_content = True
-        super().__init__(intents=intents)
-        self.tree = app_commands.CommandTree(self)
+        intents.members = True
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        init_postgres_db()
+        init_db()
         await self.tree.sync()
-        print(f"Logged in as {self.user}")
+        self.check_streaks_task.start()
+
+    async def on_ready(self):
+        print(f"✅ Logged in as {self.user} (ID: {self.user.id})")
+
+    @tasks.loop(hours=1)
+    async def check_streaks_task(self):
+        now_utc = datetime.now(timezone.utc)
+        today_str = now_utc.strftime('%Y-%m-%d')
+        yesterday_str = (now_utc - timedelta(days=1)).strftime('%Y-%m-%d')
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT user_id, streak_count, last_date, reminded_today FROM streaks WHERE streak_count > 0')
+            users = cursor.fetchall()
+
+            for user_id, streak_count, last_date, reminded_today in users:
+                if last_date != today_str and last_date != yesterday_str:
+                    cursor.execute('UPDATE streaks SET streak_count = 0, reminded_today = FALSE WHERE user_id = %s', (user_id,))
+                    try:
+                        user = await self.fetch_user(user_id)
+                        await user.send(f"💔 للأسف ضاعت سلسلتك التي وصلت إلى **{streak_count} يوم** بسبب عدم تسجيل الحضور! لا تيأس، ابدأ من جديد اليوم باستخدام `/checkin` 💪")
+                    except Exception:
+                        pass
+                elif last_date == yesterday_str and now_utc.hour >= 18 and not reminded_today:
+                    cursor.execute('UPDATE streaks SET reminded_today = TRUE WHERE user_id = %s', (user_id,))
+                    try:
+                        user = await self.fetch_user(user_id)
+                        await user.send(f"⏰ تذكير سريع! باقي ساعات قليلة وينتهي اليوم، لا تنسَ تسجيل حضورك بـ `/checkin` للحفاظ على سلسلتك (**{streak_count} يوم**) 🔥")
+                    except Exception:
+                        pass
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error in check_streaks_task: {e}")
+
+    @check_streaks_task.before_loop
+    async def before_check_streaks(self):
+        await self.wait_until_ready()
 
 client = StreakBot()
-                    # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
-import requests
+               import requests
 
 FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
 
@@ -215,10 +181,10 @@ def get_random_foryou_message():
     try:
         response = requests.get(FORYOU_RAW_URL, timeout=10)
         response.raise_for_status()
-        lines = [line.strip() for line in response.text.splitlines() if line.strip()]
-        if not lines:
+        messages = [msg.strip() for msg in response.text.split("---") if msg.strip()]
+        if not messages:
             return None
-        return random.choice(lines)
+        return random.choice(messages)
     except Exception as e:
         print(f"Error fetching /foryou messages: {e}")
         return None
@@ -307,7 +273,7 @@ async def foryou_cmd(interaction: discord.Interaction):
     embed = discord.Embed(
         title="✨ For You ✨",
         description=f"{interaction.user.mention}\n\n{msg}",
-        color=discord.Color.from_rgb(88, 101, 242)
+        color=discord.Color.from_rgb(255, 182, 193)
     )
     await interaction.followup.send(embed=embed)
 
@@ -381,4 +347,4 @@ if __name__ == "__main__":
         print("❌ Error: DISCORD_TOKEN environment variable not found!")
     else:
         client.run(TOKEN)
-        
+                       
