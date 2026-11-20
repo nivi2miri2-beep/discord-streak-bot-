@@ -316,8 +316,7 @@ class StreakBot(discord.Client):
             print(f"Error in background reminder: {e}")
 
 client = StreakBot()
-
- FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
+FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
 FORYOU_IMAGES_API_URL = "https://api.github.com/repos/nivi2miri2-beep/discord-streak-bot-/contents/foryou_images"
 ALLOWED_MEDIA_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
