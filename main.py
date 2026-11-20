@@ -1,3 +1,4 @@
+import io
 import os
 import random
 import asyncio
@@ -9,6 +10,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from flask import Flask
 import psycopg2
+import requests
 
 # --- Keep-Alive Web Server for Railway ---
 app = Flask('')
@@ -50,7 +52,7 @@ def init_db():
     conn.commit()
     cursor.close()
     conn.close()
-    
+
 
 # --- Check-in Modal ---
 class QuestionsModal(discord.ui.Modal, title='📝 تسجيل الحضور اليومي'):
@@ -178,9 +180,9 @@ class StreakBot(commands.Bot):
         await self.wait_until_ready()
 
 client = StreakBot()
-import requests
-
-FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
+    FORYOU_RAW_URL = "https://raw.githubusercontent.com/nivi2miri2-beep/discord-streak-bot-/refs/heads/main/foryou_messages.txt"
+FORYOU_IMAGES_API_URL = "https://api.github.com/repos/nivi2miri2-beep/discord-streak-bot-/contents/foryou_images"
+ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 def get_random_foryou_message():
     try:
@@ -193,6 +195,36 @@ def get_random_foryou_message():
     except Exception as e:
         print(f"Error fetching /foryou messages: {e}")
         return None
+
+def get_random_foryou_image_file():
+    try:
+        response = requests.get(FORYOU_IMAGES_API_URL, timeout=10)
+        response.raise_for_status()
+        items = response.json()
+        if not isinstance(items, list):
+            return None, None
+
+        image_items = [
+            item
+            for item in items
+            if item.get("type") == "file"
+            and item.get("name", "").lower().endswith(ALLOWED_IMAGE_EXTS)
+            and item.get("download_url")
+        ]
+        if not image_items:
+            return None, None
+
+        chosen = random.choice(image_items)
+        img_resp = requests.get(chosen["download_url"], timeout=15)
+        img_resp.raise_for_status()
+
+        filename = os.path.basename(chosen["name"])
+        buffer = io.BytesIO(img_resp.content)
+        buffer.seek(0)
+        return discord.File(fp=buffer, filename=filename), filename
+    except Exception as e:
+        print(f"Error downloading /foryou image: {e}")
+        return None, None
 
 # --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
 @client.event
@@ -225,12 +257,14 @@ async def on_message(message):
 
         await message.channel.send(embed=desc_embed)
 
+    await client.process_commands(message)
+
 # --- أمر الـ Freeze (يقرأ OWNER_ID من متغيرات البيئة بأمان) ---
 @client.tree.command(name="freeze", description="تجميد ستريك عضو لحمايته من الضياع (خاص بمولات البوت)")
 @app_commands.describe(member="العضو المراد تجميد ستريكه", days="عدد أيام التجميد")
 async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, days: int = 1):
     owner_id_env = os.getenv("OWNER_ID")
-    
+
     if not owner_id_env or str(interaction.user.id) != str(owner_id_env):
         await interaction.response.send_message("❌ عذراً، هذا الأمر مخصص فقط لمولات البوت!", ephemeral=True)
         return
@@ -240,7 +274,7 @@ async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, d
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('SELECT streak_count FROM streaks WHERE user_id = %s', (member.id,))
         result = cursor.fetchone()
 
@@ -275,12 +309,19 @@ async def foryou_cmd(interaction: discord.Interaction):
         await interaction.followup.send("❌ ما قدرتش نجيب الرسائل دابا، عاود جرب شوية من بعد.", ephemeral=True)
         return
 
+    discord_file, filename = get_random_foryou_image_file()
+
     embed = discord.Embed(
         title="✨ For You ✨",
         description=f"{interaction.user.mention}\n\n{msg}",
         color=discord.Color.from_rgb(255, 182, 193)
     )
-    await interaction.followup.send(embed=embed)
+
+    if discord_file and filename:
+        embed.set_image(url=f"attachment://{filename}")
+        await interaction.followup.send(embed=embed, file=discord_file)
+    else:
+        await interaction.followup.send(embed=embed)
 
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
@@ -352,4 +393,3 @@ if __name__ == "__main__":
         print("❌ Error: DISCORD_TOKEN environment variable not found!")
     else:
         client.run(TOKEN)
-                       
