@@ -43,9 +43,14 @@ def init_db():
             reminded_today BOOLEAN DEFAULT FALSE
         )
     ''')
+    cursor.execute('''
+        ALTER TABLE streaks
+        ADD COLUMN IF NOT EXISTS reminded_today BOOLEAN DEFAULT FALSE
+    ''')
     conn.commit()
     cursor.close()
     conn.close()
+    
 
 # --- Check-in Modal ---
 class QuestionsModal(discord.ui.Modal, title='📝 تسجيل الحضور اليومي'):
