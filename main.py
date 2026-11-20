@@ -139,7 +139,40 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
             conn.commit()
             cursor.close()
             conn.close()
-
+            # --- إرسال رسالة خاصة (DM) حسب حالة الستريك ---
+            try:
+                user = interaction.user
+                if streak_lost:
+                    lost_gifs = [
+                        "https://media.giphy.com/media/XOhNjDesPsfnS0GHz5/giphy.gif"
+                    ]
+                    dm_embed = discord.Embed(
+                        title="أنباء حزينة..",
+                        description="ضيعت عليك الستريك ياحلو ؟ فين راح حماسك ؟\nيله لا تستسلم وابدا سلسلة جديدة ولا تنساني لا ازعل منك",
+                        color=discord.Color.from_rgb(200, 50, 50)
+                    )
+                    dm_embed.set_image(url=random.choice(lost_gifs))
+                    await user.send(embed=dm_embed)
+                else:
+                    success_gifs = [
+                        "https://media.giphy.com/media/FYFWukbC5RA5KPCmjs/giphy.gif",
+                        "https://media.giphy.com/media/jap5P8z66BvpgUDGak/giphy.gif",
+                        "https://media.giphy.com/media/ekf5UulYRW9mZOpbmL/giphy.gif",
+                        "https://media.giphy.com/media/uTyfvzWlczbNc7Mvdj/giphy.gif"
+                    ]
+                    dm_embed = discord.Embed(
+                        title="أهلاً فيك، ★!!",
+                        description="سجلت حضورك اليوم وصارت سلسلتك مستمرة.. كفو عليك وعلى هالتزام الحلو! (๑˃̵ᴗ˂̵)و ♡",
+                        color=discord.Color.from_rgb(30, 30, 30)
+                    )
+                    dm_embed.set_image(url=random.choice(success_gifs))
+                    await user.send(embed=dm_embed)
+            except discord.Forbidden:
+                # العضو ساد الـ DMs من إعدادات السيرفر أو الحساب
+                print(f"Cannot send DM to {user.id}: DMs are closed.")
+            except Exception as e:
+                print(f"Could not send DM: {e}")
+                    
             # دمج الإجابات بشكل صحيح في الـ Embed العام باش تبان للكل
             public_embed = discord.Embed(
                 title=f"سجل حضوره اليوم {display_name} ≛",
