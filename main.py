@@ -14,6 +14,13 @@ import requests
 
 CHALLENGE_CHANNEL_ID = 1479578382252511383
 
+# --- ألوان باستيل Girly ---
+GIRLY_PINK = discord.Color.from_rgb(255, 182, 193)
+GIRLY_LAVENDER = discord.Color.from_rgb(216, 180, 248)
+GIRLY_PEACH = discord.Color.from_rgb(255, 218, 185)
+GIRLY_ROSE = discord.Color.from_rgb(255, 140, 175)
+GIRLY_SOFT_RED = discord.Color.from_rgb(240, 113, 135)
+
 app = Flask('')
 
 @app.route('/')
@@ -70,7 +77,7 @@ def init_postgres_db():
         print(f"❌ Error initializing database: {e}")
 
 # --- الأسئلة الأصلية القديمة ---
-class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليومية"):
+class QuestionsModal(discord.ui.Modal, title="୨ৎ أسئلة الحضور اليومية ⋆｡°✩"):
     ans1 = discord.ui.TextInput(
         label="١. ماذا فعلت من أجل التولبا اليوم؟",
         style=discord.TextStyle.paragraph,
@@ -115,7 +122,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                     (user_id, display_name, 1, today)
                 )
                 streak_count = 1
-                streak_status_text = "اليوم الأول — بداية رحلتك\n\n· سلسلة تبدأ بخطوة. بدأت رحلتك اليوم في اليوم الأول؛ عد غداً لمواصلتها."
+                streak_status_text = "اليوم الأول — بداية رحلتك ୨ৎ\n\n· سلسلة تبدأ بخطوة. بدأت رحلتك اليوم في اليوم الأول؛ عد غداً لمواصلتها. ⋆｡°✩"
             else:
                 streak_count, last_date = result
                 last_date_obj = datetime.strptime(last_date, '%Y-%m-%d').date()
@@ -125,7 +132,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                 if diff_days == 0:
                     cursor.close()
                     conn.close()
-                    await interaction.followup.send("❌ لقد سجلت حضورك وأجبت عن الأسئلة مسبقاً اليوم!", ephemeral=True)
+                    await interaction.followup.send("❌ لقد سجلت حضورك وأجبت عن الأسئلة مسبقاً اليوم! ୨ৎ", ephemeral=True)
                     return
                 elif diff_days == 1:
                     streak_count += 1
@@ -133,7 +140,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                         'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
                         (streak_count, display_name, today, user_id)
                     )
-                    streak_status_text = f"سلسلة متواصلة — {streak_count} يوماً!\n\nأحسنت بالعودة اليوم! أنت تبني الاستمرارية خطوة بعد خطوة."
+                    streak_status_text = f"سلسلة متواصلة — {streak_count} يوماً! ✧.*\n\nأحسنت بالعودة اليوم! أنت تبني الاستمرارية خطوة بعد خطوة. 🎀"
                 else:
                     streak_lost = True
                     streak_count = 1
@@ -141,7 +148,7 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                         'UPDATE streaks SET streak_count = %s, username = %s, last_date = %s WHERE user_id = %s',
                         (1, display_name, today, user_id)
                     )
-                    streak_status_text = "بداية جديدة — اليوم الأول\n\nانتهت سلسلتك السابقة وتم تصفير السترنك. حضورك اليوم يبدأ سلسلة جديدة."
+                    streak_status_text = "بداية جديدة — اليوم الأول ୨ৎ\n\nانتهت سلسلتك السابقة وتم تصفير السترنك. حضورك اليوم يبدأ سلسلة جديدة. ⋆｡°✩"
 
             conn.commit()
 
@@ -167,11 +174,12 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                                 winner_member = guild.get_member(winner_id) or await interaction.client.fetch_user(winner_id)
 
                                 loss_embed = discord.Embed(
-                                    title="🚨 نهاية تحدي الستريك!",
-                                    description=f"لقد سقط **{loser_member.display_name}** وخسر سلسلة التحدي أمام **{winner_member.display_name}** بعد أن تراجع في الستريك الخاص به! 💀",
-                                    color=discord.Color.from_rgb(220, 20, 60)
+                                    title="୨ৎ نهاية تحدي الستريك! ⋆｡°✩",
+                                    description=f"لقد سقط **{loser_member.display_name}** وخسر سلسلة التحدي أمام **{winner_member.display_name}** بعد أن تراجع في الستريك الخاص به! ✧.*",
+                                    color=GIRLY_SOFT_RED
                                 )
                                 loss_embed.set_image(url="https://media.giphy.com/media/yqGyGyGyNXzxlOIz2/giphy.gif")
+                                loss_embed.set_footer(text="🎀 حظ أوفر في التحدي القادم ୨ৎ")
                                 await channel.send(content="@everyone", embed=loss_embed)
                         except Exception as ex:
                             print(f"Error sending duel loss: {ex}")
@@ -183,11 +191,12 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                 user = interaction.user
                 if streak_lost:
                     dm_embed = discord.Embed(
-                        title="أنباء حزينة..",
-                        description="ضيعت عليك الستريك ياحلو ؟ فين راح حماسك ؟\nيله لا تستسلم وابدا سلسلة جديدة ولا تنساني لا ازعل منك",
-                        color=discord.Color.from_rgb(200, 50, 50)
+                        title="୨ৎ أنباء حزينة.. ⋆｡°✩",
+                        description="ضيعت عليك الستريك ياحلو ؟ فين راح حماسك ؟\nيله لا تستسلم وابدا سلسلة جديدة ولا تنساني لا ازعل منك ✧.*",
+                        color=GIRLY_SOFT_RED
                     )
                     dm_embed.set_image(url="https://media.giphy.com/media/XOhNjDesPsfnS0GHz5/giphy.gif")
+                    dm_embed.set_footer(text="🎀 بداية لطيفة من جديد ୨ৎ")
                     await user.send(embed=dm_embed)
                 else:
                     success_gifs = [
@@ -197,31 +206,33 @@ class QuestionsModal(discord.ui.Modal, title="أسئلة الحضور اليوم
                         "https://media.giphy.com/media/uTyfvzWlczbNc7Mvdj/giphy.gif"
                     ]
                     dm_embed = discord.Embed(
-                        title="أهلاً فيك، ★!!",
+                        title="୨ৎ أهلاً فيك، ★!! ⋆｡°✩",
                         description="سجلت حضورك اليوم وصارت سلسلتك مستمرة.. كفو عليك وعلى هالتزام الحلو! (๑˃̵ᴗ˂̵)و ♡",
-                        color=discord.Color.from_rgb(30, 30, 30)
+                        color=GIRLY_PINK
                     )
                     dm_embed.set_image(url=random.choice(success_gifs))
+                    dm_embed.set_footer(text="✧.* استمرارية ناعمة وجميلة ୨ৎ")
                     await user.send(embed=dm_embed)
             except Exception as e:
                 print(f"Could not send DM: {e}")
 
             public_embed = discord.Embed(
-                title=f"سجل حضوره اليوم {display_name} ≛",
+                title=f"୨ৎ سجل حضوره اليوم {display_name} ⋆｡°✩",
                 description=f"{streak_status_text}\n\n"
                             f"إجاباتك الثلاث لليوم:\n"
                             f"١. ماذا فعلت من أجل التولبا اليوم؟\n"
                             f"٢. ما مستوى إيمانك اليوم؟\n"
                             f"٣. حكينا عن موقف صار اليوم؟\n\n"
-                            f"تم توثيق الحضور بنجاح! ✨",
-                color=discord.Color.from_rgb(35, 39, 42)
+                            f"تم توثيق الحضور بنجاح! ✧.*",
+                color=GIRLY_LAVENDER
             )
-            public_embed.add_field(name="١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
-            public_embed.add_field(name="٢. ما مستوى إيمانك اليوم؟", value=self.ans2.value, inline=False)
-            public_embed.add_field(name="٣. حكينا عن موقف صار اليوم؟", value=self.ans3.value, inline=False)
+            public_embed.add_field(name="❀ ١. ماذا فعلت من أجل التولبا اليوم؟", value=self.ans1.value, inline=False)
+            public_embed.add_field(name="❀ ٢. ما مستوى إيمانك اليوم؟", value=self.ans2.value, inline=False)
+            public_embed.add_field(name="❀ ٣. حكينا عن موقف صار اليوم؟", value=self.ans3.value, inline=False)
+            public_embed.set_footer(text="🎀 خطوة ناعمة كل يوم ୨ৎ")
 
             await interaction.channel.send(embed=public_embed)
-            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح!", ephemeral=True)
+            await interaction.followup.send("✅ تم نشر إجاباتك وتحديث الستريك بنجاح! ⋆｡°✩", ephemeral=True)
 
         except Exception as e:
             print(f"Error in modal submit: {e}")
@@ -233,7 +244,7 @@ class DuelResponseView(discord.ui.View):
         self.challenger_id = challenger_id
         self.challenged_id = challenged_id
 
-    @discord.ui.button(label="قبول التحدي ⚔️", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="قبول التحدي 🎀", style=discord.ButtonStyle.green)
     async def accept_duel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.challenged_id:
             await interaction.response.send_message("❌ هذا التحدي ليس موجهاً لك!", ephemeral=True)
@@ -250,9 +261,9 @@ class DuelResponseView(discord.ui.View):
         conn.close()
         for child in self.children:
             child.disabled = True
-        await interaction.edit_original_response(content=f"⚔️ **قبل {interaction.user.display_name} التحدي!** المعركة على الستريك بدأت 🔥", view=self)
+        await interaction.edit_original_response(content=f"୨ৎ **قبل {interaction.user.display_name} التحدي!** المعركة على الستريك بدأت ⋆｡°✩", view=self)
 
-    @discord.ui.button(label="رفض ❌", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="رفض 🌷", style=discord.ButtonStyle.red)
     async def decline_duel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.challenged_id:
             await interaction.response.send_message("❌ هذا التحدي ليس موجهاً لك!", ephemeral=True)
@@ -269,7 +280,7 @@ class DuelResponseView(discord.ui.View):
         conn.close()
         for child in self.children:
             child.disabled = True
-        await interaction.edit_original_response(content=f"❌ رفض {interaction.user.display_name} التحدي.", view=self)
+        await interaction.edit_original_response(content=f"🌷 رفض {interaction.user.display_name} التحدي. ୨ৎ", view=self)
 
 class StreakBot(discord.Client):
     def __init__(self):
@@ -305,10 +316,11 @@ class StreakBot(discord.Client):
                         user = await self.fetch_user(user_id)
                         if user:
                             reminder_embed = discord.Embed(
-                                title="⏰ تذكير السلسلة اليومية!",
-                                description="مرحباً! لاحظت أنك لم تسجل حضورك اليوم بعد. سارع بعمل `/checkin` لكي لا تضيع سلسلتك المستمرة! 🔥",
-                                color=discord.Color.from_rgb(255, 165, 0)
+                                title="୨ৎ تذكير السلسلة اليومية! ⋆｡°✩",
+                                description="مرحباً! لاحظت أنك لم تسجل حضورك اليوم بعد. سارع بعمل `/checkin` لكي لا تضيع سلسلتك المستمرة! ✧.*",
+                                color=GIRLY_PEACH
                             )
+                            reminder_embed.set_footer(text="🎀 تذكير لطيف ليك ୨ৎ")
                             await user.send(embed=reminder_embed)
                     except Exception as e:
                         print(f"Could not send reminder: {e}")
@@ -362,7 +374,7 @@ def get_random_foryou_media_file():
         print(f"Error downloading /foryou media: {e}")
         return None, None
 
-# --- أمر !info للوصف والتعريف بالبوت (باللهجة الخليجية المزوقة) ---
+# --- أمر !info للوصف والتعريف بالبوت بلمسة Girly ---
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -370,37 +382,37 @@ async def on_message(message):
 
     if message.content.strip().lower() == "!info":
         desc_embed = discord.Embed(
-            title="✨ بـوت الإلـتـزام والـتـولـبـا 🌟",
-            description="يا هلا بك يا راقي/يا راقية! 🌸 هذا رفيق دربك في السيرفر لمتابعة انضباطك، سلسلتك اليومية، ورحلتك بكل شغف واجتهاد. 💪🔥",
-            color=discord.Color.from_rgb(88, 101, 242)
+            title="୨ৎ بـوت الإلـتـزام والـتـولـبـا ⋆｡°✩",
+            description="يا هلا بك يا راقي/يا راقية! 🌸 هذا رفيق دربك في السيرفر لمتابعة انضباطك، سلسلتك اليومية، ورحلتك بكل شغف واجتهاد. ✧.*",
+            color=GIRLY_LAVENDER
         )
         desc_embed.add_field(
-            name="🔹 أهم الأوامر والخدمات:",
-            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة، وخلك دائماً في القمة!\n"
-                  "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒).\n"
+            name="❀ أهم الأوامر والخدمات:",
+            value="* 📝 **`/checkin`** — سجّل حضورك اليومي وجاوب على الأسئلة، وخلك دائماً في القمة! ⋆｡°✩\n"
+                  "* 🔥 **`/streak`** — تشوّق واعرف كم يوم استمرت سلسلتك بوضوح (خاص فيك وحدك 🔒). ୨ৎ\n"
                   "* 🏆 **`/leaderboard`** — ناظر لوحة الشرف وشوف الأبطال الملتزمين معنا في القمة (Top 10) 👑.\n"
-                  "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل 🌟.\n"
-                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك ⚔️.\n"
-                  "* ✨ **`/foryou`** — رسالة مفاجأة عشوائية ليك!",
+                  "* 📖 **`/help`** — الدليل الشامل لكل أعضاء السيرفر عشان يستفيد الكل ✧.*.\n"
+                  "* ⚔️ **`/streakduel`** — تحدى صديق في معركة الستريك 🎀.\n"
+                  "* ✨ **`/foryou`** — رسالة مفاجأة عشوائية ليك! 🌸",
             inline=False
         )
         desc_embed.add_field(
-            name="⏰ تذكير تلقائي:",
-            value="لا تشيل هم نسيان الستريك! البوت يراقب وضعك ويرسل لك تنبيه في الخاص (DM) عشان ما يضيع تعبك وتطير سلسلتك 🚀.",
+            name="🌷 تذكير تلقائي:",
+            value="لا تشيل هم نسيان الستريك! البوت يراقب وضعك ويرسل لك تنبيه في الخاص (DM) عشان ما يضيع تعبك وتطير سلسلتك ☁️✨.",
             inline=False
         )
-        desc_embed.set_footer(text="✨ هات ما عندك، وخلنا نبني استمرارية تليق بطموحك! ☕🌿")
+        desc_embed.set_footer(text="୨ৎ هات ما عندك، وخلنا نبني استمرارية تليق بطموحك! ⋆｡°✩")
 
         await message.channel.send(embed=desc_embed)
 
 # --- أمر الـ Freeze (يقرأ OWNER_ID من متغيرات البيئة بأمان) ---
-@client.tree.command(name="freeze", description="تجميد ستريك عضو لحمايته من الضياع (خاص بمولات البوت)")
+@client.tree.command(name="freeze", description="تجميد ستريك عضو لحمايته من الضياع (خاص بالبوت أونر)")
 @app_commands.describe(member="العضو المراد تجميد ستريكه", days="عدد أيام التجميد")
 async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, days: int = 1):
     owner_id_env = os.getenv("OWNER_ID")
 
     if not owner_id_env or str(interaction.user.id) != str(owner_id_env):
-        await interaction.response.send_message("❌ عذراً، هذا الأمر مخصص فقط لمولات البوت!", ephemeral=True)
+        await interaction.response.send_message("❌ عذراً، هذا الأمر مخصص فقط للبوت أونر!", ephemeral=True)
         return
 
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -427,7 +439,7 @@ async def freeze_cmd(interaction: discord.Interaction, member: discord.Member, d
         conn.close()
 
         await interaction.response.send_message(
-            f"❄️ تم تجميد وحماية ستريك العضو **{member.display_name}** بنجاح لمدة {days} يوم/أيام! لن يضيع ستريكه اليوم.",
+            f"❄️୨ৎ تم تجميد وحماية ستريك العضو **{member.display_name}** بنجاح لمدة {days} يوم/أيام! لن يضيع ستريكه اليوم. ⋆｡°✩",
             ephemeral=True
         )
     except Exception as e:
@@ -440,16 +452,17 @@ async def foryou_cmd(interaction: discord.Interaction):
     msg = get_random_foryou_message()
 
     if not msg:
-        await interaction.followup.send("❌ ما قدرتش نجيب الرسائل دابا، عاود جرب شوية من بعد.", ephemeral=True)
+        await interaction.followup.send("❌ تعذر جلب الرسائل الآن، يرجى المحاولة بعد قليل. ✧.*", ephemeral=True)
         return
 
     discord_file, filename = get_random_foryou_media_file()
 
     embed = discord.Embed(
-        title="✨ For You ✨",
-        description=f"{interaction.user.mention}\n\n{msg}",
-        color=discord.Color.from_rgb(255, 182, 193)
+        title="୨ৎ For You ⋆｡°✩",
+        description=f"{interaction.user.mention} ✧.*\n\n{msg}",
+        color=GIRLY_PINK
     )
+    embed.set_footer(text="🎀 رسالة لطيفة ليك وحدك ୨ৎ")
 
     if discord_file and filename:
         embed.set_image(url=f"attachment://{filename}")
@@ -460,15 +473,16 @@ async def foryou_cmd(interaction: discord.Interaction):
 @client.tree.command(name="help", description="طريقة استخدام البوت وكيفية التعامل مع الأوامر")
 async def help_cmd(interaction: discord.Interaction):
     help_embed = discord.Embed(
-        title="📖 دليل استخدام بوت الاستمرارية والتولبا",
-        description="مرحباً بك! هذا البوت مخصص لمساعدتك في تتبع انضباطك وسلسلتك اليومية:",
-        color=discord.Color.from_rgb(88, 101, 242)
+        title="୨ৎ دليل استخدام بوت الاستمرارية والتولبا ⋆｡°✩",
+        description="مرحباً بك! هذا البوت مخصص لمساعدتك في تتبع انضباطك وسلسلتك اليومية بكل رقة ✧.*",
+        color=GIRLY_LAVENDER
     )
-    help_embed.add_field(name="📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية وإجبارية الإجابة لتسجيل الحضور.", inline=False)
-    help_embed.add_field(name="🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية والاطلاع على تقدمك.", inline=False)
-    help_embed.add_field(name="🏆 `/leaderboard`", value="لعرض لوحة الشرف (Top 10).", inline=False)
-    help_embed.add_field(name="⚔️ `/streakduel @user`", value="لتحدي صديق في معركة الستريك.", inline=False)
-    help_embed.add_field(name="✨ `/foryou`", value="رسالة مفاجأة عشوائية ليك.", inline=False)
+    help_embed.add_field(name="❀ 📝 `/checkin`", value="لفتح نافذة الأسئلة اليومية وإجبارية الإجابة لتسجيل الحضور.", inline=False)
+    help_embed.add_field(name="❀ 🔥 `/streak`", value="لعرض عدد أيام سلسلتك الحالية والاطلاع على تقدمك.", inline=False)
+    help_embed.add_field(name="❀ 🏆 `/leaderboard`", value="لعرض لوحة الشرف (Top 10).", inline=False)
+    help_embed.add_field(name="❀ ⚔️ `/streakduel @user`", value="لتحدي صديق في معركة الستريك.", inline=False)
+    help_embed.add_field(name="❀ ✨ `/foryou`", value="رسالة مفاجأة عشوائية ليك.", inline=False)
+    help_embed.set_footer(text="🎀 بالتوفيق في رحلتك الجميلة ୨ৎ")
     await interaction.response.send_message(embed=help_embed, ephemeral=True)
 
 @client.tree.command(name="streakduel", description="تحدى صديقاً في معركة ستريك")
@@ -504,7 +518,7 @@ async def streakduel_cmd(interaction: discord.Interaction, member: discord.Membe
 
     view = DuelResponseView(challenger.id, member.id)
     await interaction.response.send_message(
-        f"⚔️ **تحدي جديد في الستريك!**\n{member.mention}، لقد قام **{challenger.display_name}** بتحديك في معركة الستريك! هل تقبل التحدي؟",
+        f"୨ৎ **تحدي جديد في الستريك!** ⋆｡°✩\n{member.mention}، لقد قام **{challenger.display_name}** بتحديك في معركة الستريك! هل تقبل التحدي؟ ✧.*",
         view=view
     )
 
@@ -544,9 +558,10 @@ async def streak_cmd(interaction: discord.Interaction):
         cursor.close()
         conn.close()
 
-        desc = f"❌ ليس لديك أي سلسلة نشطة حالياً يا {display_name}. استخدم /checkin وابدأ رحلتك اليوم!" if (not result or result[0] == 0) else f"🔥 أهلاً بك يا {display_name}!\n\nانت في اليوم {result[0]} من سلسلة انضباطك واستمرارك."
+        desc = f"❌ ليس لديك أي سلسلة نشطة حالياً يا {display_name}. استخدم /checkin وابدأ رحلتك اليوم! ୨ৎ" if (not result or result[0] == 0) else f"୨ৎ أهلاً بك يا {display_name}! ⋆｡°✩\n\nانت في اليوم {result[0]} من سلسلة انضباطك واستمرارك. ✧.*"
 
-        embed = discord.Embed(title=f"✨ تقرير السلسلة لـ {display_name}", description=desc, color=discord.Color.from_rgb(88, 101, 242))
+        embed = discord.Embed(title=f"୨ৎ تقرير السلسلة لـ {display_name} ⋆｡°✩", description=desc, color=GIRLY_PINK)
+        embed.set_footer(text="🎀 استمرارية ناعمة تصنع أثر كبير ୨ৎ")
         await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
         print(f"Error in streak cmd: {e}")
@@ -566,14 +581,15 @@ async def leaderboard_cmd(interaction: discord.Interaction):
             await interaction.response.send_message("❌ لا توجد أي بيانات مسجلة في لوحة الشرف حتى الآن!", ephemeral=True)
             return
 
-        lb_description = "⚡ Top 10 • Consistency Leaderboard\n\n"
+        lb_description = "୨ৎ Top 10 • Consistency Leaderboard ⋆｡°✩\n\n"
         medals = ["👑", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 
         for index, (db_username, streak) in enumerate(top_users):
             medal = medals[index] if index < len(medals) else f"#{index+1}"
-            lb_description += f"{medal} {db_username or 'Unknown'} — {streak} days 🔥\n"
+            lb_description += f"{medal} {db_username or 'Unknown'} — {streak} days ✧.*\n"
 
-        embed = discord.Embed(title="🏆 Server Leaderboard • Hall of Fame", description=lb_description, color=discord.Color.from_rgb(255, 215, 0))
+        embed = discord.Embed(title="୨ৎ Server Leaderboard • Hall of Fame ⋆｡°✩", description=lb_description, color=GIRLY_PEACH)
+        embed.set_footer(text="🎀 كفو على كل يوم التزام وجمال ୨ৎ")
         await interaction.response.send_message(embed=embed)
     except Exception as e:
         print(f"Error in leaderboard: {e}")
